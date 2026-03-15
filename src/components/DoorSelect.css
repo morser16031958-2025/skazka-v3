@@ -1,0 +1,161 @@
+.door-select {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 40px 24px 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.door-background {
+  position: absolute;
+  inset: 0;
+  background-image: url('/backgrounds/magia.png');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.75;
+  z-index: 0;
+}
+
+.door-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 15, 0.75);
+  z-index: 1;
+}
+
+.door-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.main-title {
+  position: relative;
+  z-index: 2;
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 500;
+  font-family: Georgia, serif;
+  color: #f0ead6;
+  text-align: center;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.genre-grid {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  max-width: 1600px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.genre-card {
+  padding: 30px;
+  border-radius: 24px;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+  color: #ffffff;
+}
+
+.genre-card:hover {
+  transform: translateY(-4px);
+}
+
+.genre-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.genre-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.genre-title {
+  font-size: 21px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.genre-description {
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.age-block {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.age-title {
+  font-size: 21px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.age-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.age-pill {
+  padding: 12px 24px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.age-pill.active {
+  background: #ffffff;
+  color: #1b1224;
+  border-color: #ffffff;
+}
+
+.next-button {
+  position: relative;
+  z-index: 2;
+  background: #ffffff;
+  color: #1b1224;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 48px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.next-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 900px) {
+  .genre-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
