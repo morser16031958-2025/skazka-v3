@@ -870,12 +870,30 @@ app.post("/api/ai/generate-image", async (req, res) => {
     }
 
     let imageUrl;
-    try {
-      imageUrl = await callOpenRouterImage(prompt);
-      console.log("[AI] Using OpenRouter for image");
-    } catch (e) {
-      console.warn("[AI] ⚠️ OpenRouter image failed, switching to N1N...");
-      imageUrl = await callN1nImage(prompt);
+    if (AI_PROVIDER === "n1n") {
+      try {
+        imageUrl = await callN1nImage(prompt);
+        console.log("[AI] Using N1N for image");
+      } catch (e) {
+        console.warn("[AI] ⚠️ N1N image failed, switching to OpenRouter...", e instanceof Error ? e.message : e);
+        imageUrl = await callOpenRouterImage(prompt);
+      }
+      if (!imageUrl) {
+        console.warn("[AI] ⚠️ N1N returned empty image, switching to OpenRouter...");
+        imageUrl = await callOpenRouterImage(prompt);
+      }
+    } else {
+      try {
+        imageUrl = await callOpenRouterImage(prompt);
+        console.log("[AI] Using OpenRouter for image");
+      } catch (e) {
+        console.warn("[AI] ⚠️ OpenRouter image failed, switching to N1N...", e instanceof Error ? e.message : e);
+        imageUrl = await callN1nImage(prompt);
+      }
+      if (!imageUrl) {
+        console.warn("[AI] ⚠️ OpenRouter returned empty image, switching to N1N...");
+        imageUrl = await callN1nImage(prompt);
+      }
     }
     if (!imageUrl) {
       return res.status(500).json({ error: "Failed to generate image" });
