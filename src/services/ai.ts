@@ -230,6 +230,7 @@ export async function generateWorldSetup(
       };
       const prompt = resolvedWorld.cover_image_prompt || resolvedWorld.description_short;
       const worldImage = await generateImage(prompt, world.imageStyleSuffix).catch(() => "");
+      
       return {
         world: resolvedWorld,
         worldImage,
