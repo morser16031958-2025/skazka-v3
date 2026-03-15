@@ -7,6 +7,7 @@ import "./StoryReader.css";
 
 interface StoryReaderProps {
   story: Story;
+  backgroundImage?: string;
   onChapterUpdate: (story: Story) => void;
   onBack: () => void;
 }
@@ -83,7 +84,7 @@ function resolveGenre(mode?: string) {
   return GENRES[normalized as Genre] || null;
 }
 
-export function StoryReader({ story, onChapterUpdate, onBack }: StoryReaderProps) {
+export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }: StoryReaderProps) {
   const [loading, setLoading] = useState(false);
   const [selectedChoices, setSelectedChoices] = useState<Set<string>>(new Set());
   const [isFlipping, setIsFlipping] = useState(false);
@@ -205,12 +206,17 @@ export function StoryReader({ story, onChapterUpdate, onBack }: StoryReaderProps
   return (
     <div 
       className={`story-reader ${isFlipping ? "page-flip" : ""}`}
-      style={{ 
+      style={backgroundImage ? {
+        backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.6) 100%), url(${backgroundImage})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      } : {
         backgroundColor: defaultBg,
         '--bg-color': defaultBg
       } as React.CSSProperties & { '--bg-color': string }}
     >
-      {chapter.scene_image_url && (
+      {chapter.scene_image_url && story.chapters.findIndex((c) => c.id === chapter.id) > 0 && (
         <div className="image-container">
           <img src={chapter.scene_image_url} alt={chapter.title} className="scene-image" />
           <div className="image-gradient"></div>

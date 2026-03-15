@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Story } from "./types";
-import { Genre, AgeGroup } from "./config/worlds";
+import { Genre, AgeGroup, GENRES } from "./config/worlds";
 import { Landing } from "./components/Landing";
 import { DoorSelect } from "./components/DoorSelect";
 import { StoryWizard } from "./components/StoryWizard";
@@ -19,6 +19,8 @@ function App() {
   const [currentStory, setCurrentStory] = useState<Story | null>(null);
   const [selectedWorldMode, setSelectedWorldMode] = useState<Genre | null>(null);
   const [selectedAgeGroup, setSelectedAgeGroup] = useState<AgeGroup>("auto");
+  const [showChapterGenModal, setShowChapterGenModal] = useState(false);
+  const [chapterGenBgIndex, setChapterGenBgIndex] = useState(0);
   const saveQueueRef = useRef(new Map<string, Promise<void>>());
   const pendingStoryRef = useRef(new Map<string, Story>());
 
@@ -130,6 +132,19 @@ function App() {
     }
   }, [screen]);
 
+  // Смена фона при генерации главы
+  useEffect(() => {
+    if (!showChapterGenModal || stories.length === 0) return;
+    const interval = setInterval(() => {
+      setChapterGenBgIndex(prev => {
+        const images = stories.flatMap(s => [s.heroImage, s.antagonistImage].filter(Boolean));
+        if (images.length === 0) return 0;
+        return (prev + 1) % images.length;
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [showChapterGenModal, stories]);
+
   const handleDoorSelect = (worldMode: Genre, ageGroup: AgeGroup) => {
     setSelectedWorldMode(worldMode);
     setSelectedAgeGroup(ageGroup);
@@ -137,9 +152,9 @@ function App() {
   };
 
   const handleStoryCreated = async (newStory: Story) => {
-    // Генерируем первую главу
+    setShowChapterGenModal(true);
     try {
-      const { generateChapter } = await import("./services/ai");
+      const { generateChapter, generateImage } = await import("./services/ai");
 
       const firstChapter = await generateChapter(
         newStory.worldMode!,
@@ -149,11 +164,21 @@ function App() {
         "История только начинается"
       );
 
+      const world = GENRES[newStory.worldMode];
+      let sceneImageUrl = "";
+      if (firstChapter.scene_image_prompt) {
+        try {
+          sceneImageUrl = await generateImage(firstChapter.scene_image_prompt, world?.imageStyleSuffix);
+        } catch (e) {
+          console.warn("Failed to generate scene image:", e);
+        }
+      }
+
       const chapterNode = {
         id: "chapter_0",
         title: firstChapter.title,
         narration_text: firstChapter.narration_text,
-        scene_image_url: "",
+        scene_image_url: sceneImageUrl,
         choices: firstChapter.choices.map((c, i) => ({
           id: `choice_${i}`,
           text: c.text,
@@ -165,11 +190,11 @@ function App() {
         ...newStory,
         chapters: [chapterNode],
         currentChapter: chapterNode,
+        worldImage: sceneImageUrl || newStory.worldImage,
       };
 
       const persistedStory = await persistStoryAssets(storyWithChapter);
 
-      // Сохраняем в БД
       await fetch("/api/stories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -178,9 +203,11 @@ function App() {
 
       setCurrentStory(persistedStory);
       setStories((prev) => [...prev, persistedStory]);
+      setShowChapterGenModal(false);
       setScreen("reader");
     } catch (error) {
       console.error("Failed to create first chapter:", error);
+      setShowChapterGenModal(false);
       alert("Ошибка при создании первой главы: " + (error instanceof Error ? error.message : ""));
     }
   };
@@ -328,9 +355,25 @@ function App() {
       {screen === "reader" && currentStory && (
         <StoryReader
           story={currentStory}
+          backgroundImage={currentStory.worldImage}
           onChapterUpdate={handleUpdateStory}
           onBack={handleBackToContents}
         />
+      )}
+
+      {showChapterGenModal && (
+        <div className="chapter-gen-modal">
+          {(() => {
+            const images = stories.flatMap(s => [s.heroImage, s.antagonistImage].filter(Boolean));
+            const bgImage = images.length > 0 ? images[chapterGenBgIndex] : null;
+            return bgImage ? (
+              <div className="chapter-gen-modal-bg" style={{ backgroundImage: `url(${bgImage})` }} />
+            ) : null;
+          })()}
+          <div className="chapter-gen-modal-content">
+            <div className="blink-text">Создаю сказку...</div>
+          </div>
+        </div>
       )}
 
       {screen === "contents" && currentStory && (
