@@ -343,15 +343,6 @@ app.delete("/api/stories/:id", (req, res) => {
   }
 });
 
-// API: Скачать БД
-app.get("/api/download-db", (req, res) => {
-  if (fs.existsSync(DB_PATH)) {
-    res.download(DB_PATH, "tales_backup.db");
-  } else {
-    res.status(404).json({ error: "Database file not found" });
-  }
-});
-
 // AI API endpoints
 const N1N_API_KEY = process.env.N1N_API_KEY;
 const N1N_TEXT_MODEL = process.env.N1N_TEXT_MODEL || "gemini-2.5-flash";
