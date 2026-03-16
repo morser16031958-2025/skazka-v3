@@ -149,7 +149,7 @@ app.use((req, res, next) => {
 
 // Логирование запросов
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+//    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
   next();
 });
 
@@ -359,7 +359,7 @@ const N1N_IMAGE_MODEL = process.env.N1N_IMAGE_MODEL || "gemini-2.5-flash-image";
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_TEXT_MODEL = process.env.OPENROUTER_TEXT_MODEL || "google/gemini-2.5-flash";
-const OPENROUTER_IMAGE_MODEL = process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-2.5-flash-image";
+const OPENROUTER_IMAGE_MODEL = process.env.OPENROUTER_IMAGE_MODEL || "google/gemini-3.1-flash-image-preview";
 const AI_PROVIDER = (process.env.AI_PROVIDER || (OPENROUTER_API_KEY ? "openrouter" : "n1n")).toLowerCase();
 const DEFAULT_SYSTEM_INSTRUCTION = `Ты — популярный детский писатель, чутко понимающий 
 психологию ребёнка, создающий понятные, яркие и 
@@ -671,19 +671,101 @@ async function callOpenRouterJson(prompt: string, systemPrompt: string, model: s
   throw new Error(`OpenRouter API failed: ${lastError}`);
 }
 
-async function callOpenRouterImage(prompt: string, model: string = OPENROUTER_IMAGE_MODEL) {
-  if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API Key not configured");
+// Определяет — является ли модель Gemini-моделью (для маршрутизации через N1N)
+function isGeminiModel(model: string): boolean {
+  const m = model.toLowerCase();
+  return m.startsWith("gemini") || m.startsWith("google/gemini");
+}
+
+// Генерация картинки через N1N (нативный Gemini API — единственный надёжный способ для Gemini)
+async function callN1nImageByModel(prompt: string, model: string) {
+  // Вырезаем префикс "google/" если есть — N1N принимает "gemini-2.5-flash-image"
+  const n1nModel = model.replace(/^google\//i, "");
+  // console.log(`[N1N Image] Starting with model: ${n1nModel}`);
+
+  if (!N1N_API_KEY) throw new Error("N1N API Key not configured");
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) {
-      await sleep(2000);
-    }
+    if (attempt > 0) await sleep(2000);
 
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-      const resp = await fetch("https://openrouter.ai/api/v1/images/generations", {
+      const resp = await fetch(`https://api.n1n.ai/v1beta/models/${n1nModel}:generateContent`, {
+        signal: controller.signal,
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${N1N_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseModalities: ["IMAGE"] }
+        })
+      });
+
+      clearTimeout(timeoutId);
+
+      if (resp.status === 401 || resp.status === 403) {
+        console.error(`[N1N Image] Auth error (${resp.status})`);
+        return null;
+      }
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error(`[N1N Image] HTTP ${resp.status}:`, errText);
+        continue;
+      }
+
+      const data = await resp.json() as any;
+      const parts = data?.candidates?.[0]?.content?.parts;
+      if (!Array.isArray(parts)) {
+        console.error(`[N1N Image] No parts in response`);
+        return null;
+      }
+
+      for (const part of parts) {
+        const inlineData = part?.inlineData || part?.inline_data;
+        if (inlineData?.data) {
+          const mimeType = inlineData.mimeType || "image/png";
+          // console.log(`[N1N Image] Got image, mimeType: ${mimeType}`);
+          return `data:${mimeType};base64,${inlineData.data}`;
+        }
+      }
+
+      console.error(`[N1N Image] No image data in parts:`, JSON.stringify(data).substring(0, 300));
+      return null;
+
+    } catch (e) {
+      console.error(`[N1N Image] Attempt ${attempt + 1} failed:`, e);
+    }
+  }
+
+  return null;
+}
+
+// Генерация картинки через OpenRouter (все модели включая Gemini)
+async function callOpenRouterImage(prompt: string, model: string = OPENROUTER_IMAGE_MODEL) {
+  // console.log(`[OpenRouter Image] Starting with model: ${model}`);
+  if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API Key not configured");
+
+  // Gemini требует ["image", "text"], остальные (flux, riverflow и т.д.) — ["image"]
+  const gemini = isGeminiModel(model);
+  const modalities = gemini ? ["image", "text"] : ["image"];
+  // Gemini нужно явное указание на генерацию картинки — без этого модель отвечает текстом
+  const finalPrompt = gemini
+    ? `Please generate an image (do not respond with text). Illustration: ${prompt}`
+    : prompt;
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(2000);
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+      const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         signal: controller.signal,
         method: "POST",
         headers: {
@@ -692,36 +774,78 @@ async function callOpenRouterImage(prompt: string, model: string = OPENROUTER_IM
         },
         body: JSON.stringify({
           model,
-          prompt,
-          response_format: "b64_json"
+          messages: [{ role: "user", content: finalPrompt }],
+          modalities
         })
       });
 
       clearTimeout(timeoutId);
 
       if (resp.status === 401 || resp.status === 403) {
+        const errText = await resp.text();
+        console.error(`[OpenRouter Image] Auth error (${resp.status}):`, errText);
         return null;
       }
 
       if (!resp.ok) {
+        const errText = await resp.text();
+        console.error(`[OpenRouter Image] HTTP ${resp.status}:`, errText);
         continue;
       }
 
       const data = await resp.json() as any;
-      const item = data?.data?.[0];
-      if (item?.b64_json) {
-        return `data:image/png;base64,${item.b64_json}`;
+      const message = data?.choices?.[0]?.message;
+
+      // Путь 1: message.images[] — актуальный формат OpenRouter (camelCase imageUrl)
+      if (Array.isArray(message?.images) && message.images.length > 0) {
+        const img = message.images[0];
+        const url = img?.imageUrl?.url || img?.image_url?.url;
+        if (url) {
+          // console.log(`[OpenRouter Image] Got image via message.images[]`);
+          return url;
+        }
       }
-      if (item?.url) {
-        return item.url;
+
+      // Путь 2: content[] массив (старый формат / другие модели)
+      const content = message?.content;
+      if (Array.isArray(content)) {
+        for (const item of content) {
+          if (item.type === "image_url") {
+            const url = item.imageUrl?.url || item.image_url?.url;
+            if (url) {
+              // console.log(`[OpenRouter Image] Got image via content[image_url]`);
+              return url;
+            }
+          }
+          const b64 = item?.image_base64?.b64_json || item?.b64_json;
+          if (b64) {
+            // console.log(`[OpenRouter Image] Got image via content[b64]`);
+            return `data:image/png;base64,${b64}`;
+          }
+        }
       }
+
+      // Путь 3: content — строка data URL
+      if (typeof content === "string" && content.startsWith("data:image")) {
+        // console.log(`[OpenRouter Image] Got image via content string`);
+        return content;
+      }
+
+      console.error(`[OpenRouter Image] No image found. Response:`, JSON.stringify(data).substring(0, 400));
       return null;
+
     } catch (e) {
       console.error(`[OpenRouter Image] Attempt ${attempt + 1} failed:`, e);
     }
   }
 
   return null;
+}
+
+// Маршрутизация: всё через OpenRouter, N1N как фоллбек
+async function callSmartImage(prompt: string, model: string = OPENROUTER_IMAGE_MODEL): Promise<string | null> {
+  // console.log(`[Image] Routing ${model} → OpenRouter`);
+  return callOpenRouterImage(prompt, model);
 }
 
 // API: Генерировать главу
@@ -758,14 +882,7 @@ app.post("/api/ai/generate-chapter", async (req, res) => {
 
     if (prompt && systemPrompt && !genre) {
       const resolvedSystemPrompt = systemPrompt || DEFAULT_SYSTEM_INSTRUCTION;
-      let result;
-      try {
-        result = await callOpenRouterJson(prompt, resolvedSystemPrompt);
-        console.log("[AI] Using OpenRouter");
-      } catch (e) {
-        console.warn("[AI] ⚠️ OpenRouter failed, switching to N1N...");
-        result = await callN1nJson(prompt, resolvedSystemPrompt);
-      }
+      const result = await callOpenRouterJson(prompt, resolvedSystemPrompt);
       if (clientRequestId) {
         chapterRequestCache.set(clientRequestId, { expiresAt: Date.now() + CHAPTER_CACHE_TTL, data: result });
       }
@@ -784,7 +901,7 @@ app.post("/api/ai/generate-chapter", async (req, res) => {
     const resolvedValueTheme = valueTheme || "не указано";
     const resolvedAntiValueTheme = antiValueTheme || resolveAntiValue(valueTheme) || "не указано";
     const resolvedStateSummary = stateSummary || "История только начинается";
-    const generatedPrompt = `Напиши следующую главу сказки. 
+    const generatedPrompt = `Ты знаменитый детский писатель тонко понимающий разные жанры сказок и особенности возраста детей, создающий необычно яркие и волшебные образы. Напиши следующую главу сказки. 
 Жанр: ${genre}. 
 Возраст читателя: ${ageGroup}. 
 Ценность: ${resolvedValueTheme}. 
@@ -800,10 +917,7 @@ ${choiceText ? `Выбор читателя: ${choiceText}` : "Это перва
 scene_image_prompt, choices (3 объекта: choice_id, 
 button_text, intent_tag), state_summary_end.`;
 
-    const selectedProvider = (provider || AI_PROVIDER).toLowerCase();
-    const result = selectedProvider === "openrouter"
-      ? await callOpenRouterJson(generatedPrompt, resolvedSystemPrompt)
-      : await callN1nJson(generatedPrompt, resolvedSystemPrompt);
+    const result = await callOpenRouterJson(generatedPrompt, resolvedSystemPrompt);
     if (clientRequestId) {
       chapterRequestCache.set(clientRequestId, { expiresAt: Date.now() + CHAPTER_CACHE_TTL, data: result });
     }
@@ -824,7 +938,7 @@ app.post("/api/ai/generate-world", async (req, res) => {
     const resolvedSystemPrompt = systemPrompt || DEFAULT_SYSTEM_INSTRUCTION;
     const resolvedValueTheme = valueTheme || "не указано";
     const resolvedAntiValueTheme = antiValueTheme || resolveAntiValue(valueTheme) || "не указано";
-    const prompt = `Сгенерируй РОВНО 3 варианта волшебного мира. 
+    const prompt = `Ты знаменитый детский писатель тонко понимающий разные жанры сказок и особенности возраста детей, создающий необычно яркие и волшебные образы. Сгенерируй РОВНО 3 варианта волшебного мира. 
 Каждый вариант должен быть УНИКАЛЬНЫМ — 
 разные названия, разные правила, разная атмосфера. 
 Жанр: ${genre}. 
@@ -840,20 +954,7 @@ hero_description, conflict_description.
 
 ВАЖНО: все 3 мира должны отличаться друг от друга!`;
 
-    const selectedProvider = (provider || AI_PROVIDER).toLowerCase();
-    let result;
-    try {
-      result = selectedProvider === "n1n" 
-        ? await callN1nJson(prompt, resolvedSystemPrompt)
-        : await callOpenRouterJson(prompt, resolvedSystemPrompt);
-      console.log(`[AI] Using ${selectedProvider === "n1n" ? "N1N" : "OpenRouter"}`);
-    } catch (e) {
-      const fallback = selectedProvider === "n1n" ? "OpenRouter" : "N1N";
-      console.warn(`[AI] ⚠️ ${selectedProvider === "n1n" ? "N1N" : "OpenRouter"} failed, switching to ${fallback}...`);
-      result = selectedProvider === "n1n"
-        ? await callOpenRouterJson(prompt, resolvedSystemPrompt)
-        : await callN1nJson(prompt, resolvedSystemPrompt);
-    }
+    const result = await callOpenRouterJson(prompt, resolvedSystemPrompt);
     res.json(result);
   } catch (e) {
     console.error(e);
@@ -869,32 +970,10 @@ app.post("/api/ai/generate-image", async (req, res) => {
       return res.status(400).json({ error: "Missing prompt" });
     }
 
-    let imageUrl;
-    if (AI_PROVIDER === "n1n") {
-      try {
-        imageUrl = await callN1nImage(prompt);
-        console.log("[AI] Using N1N for image");
-      } catch (e) {
-        console.warn("[AI] ⚠️ N1N image failed, switching to OpenRouter...", e instanceof Error ? e.message : e);
-        imageUrl = await callOpenRouterImage(prompt);
-      }
-      if (!imageUrl) {
-        console.warn("[AI] ⚠️ N1N returned empty image, switching to OpenRouter...");
-        imageUrl = await callOpenRouterImage(prompt);
-      }
-    } else {
-      try {
-        imageUrl = await callOpenRouterImage(prompt);
-        console.log("[AI] Using OpenRouter for image");
-      } catch (e) {
-        console.warn("[AI] ⚠️ OpenRouter image failed, switching to N1N...", e instanceof Error ? e.message : e);
-        imageUrl = await callN1nImage(prompt);
-      }
-      if (!imageUrl) {
-        console.warn("[AI] ⚠️ OpenRouter returned empty image, switching to N1N...");
-        imageUrl = await callN1nImage(prompt);
-      }
-    }
+    // console.log(`[generate-image] Prompt: ${prompt.substring(0, 200)}`);
+
+    // N1N only for images
+    let imageUrl = await callN1nImage(prompt);
     if (!imageUrl) {
       return res.status(500).json({ error: "Failed to generate image" });
     }
@@ -932,13 +1011,8 @@ async function setupVite() {
 async function start() {
   await setupVite();
 
-  // Show configured AI provider
   console.log(`\n🤖 AI Provider: ${AI_PROVIDER.toUpperCase()}`);
-  if (AI_PROVIDER === "openrouter" && OPENROUTER_API_KEY) {
-    console.log("   Fallback: N1N (on failure)");
-  } else if (AI_PROVIDER === "n1n" && N1N_API_KEY) {
-    console.log("   Fallback: OpenRouter (on failure)");
-  }
+  console.log("   Text: OpenRouter, Images: N1N");
 
   // Issue 6: Warn if no API keys are configured
   if (!N1N_API_KEY && !OPENROUTER_API_KEY) {
