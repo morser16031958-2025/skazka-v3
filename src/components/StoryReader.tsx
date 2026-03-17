@@ -95,6 +95,13 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
   const world = resolveGenre(story.worldMode);
   const defaultBg = "#1a0f00";
 
+  useEffect(() => {
+    if (chapter) {
+      console.log(`[StoryReader] Открыта глава: "${chapter.title}" (id: ${chapter.id})`);
+      console.log(`  Дочерние главы:`, story.chapters.filter(c => c.parentChapterId === chapter.id));
+    }
+  }, [chapter?.id]);
+
   // Issue 4: Always show all 3 choices for current chapter
   let visibleChoices = chapter?.choices || [];
 
@@ -244,7 +251,10 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
             <div className="choices-grid">
               {visibleChoices.map((choice, choiceIdx) => {
                 const isSelected = selectedChoices.has(choice.text);
-                const isUsed = !!getChildChapter(story.chapters, chapter.id, choiceIdx);
+                const isUsed = chapter ? !!getChildChapter(story.chapters, chapter.id, choiceIdx) : false;
+                if (isUsed) {
+                  console.log(`✓ ${choice.text} - дочерняя глава найдена`);
+                }
                 return (
                   <button
                     key={choice.id}
