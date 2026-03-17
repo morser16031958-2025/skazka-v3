@@ -94,7 +94,6 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
   const chapter = story.currentChapter;
   const world = resolveGenre(story.worldMode);
   const defaultBg = "#1a0f00";
-  const nextChapter = getNextChapter(story, chapter);
 
   // Issue 4: Always show all 3 choices for current chapter
   let visibleChoices = chapter?.choices || [];
