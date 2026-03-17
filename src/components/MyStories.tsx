@@ -22,9 +22,9 @@ function getAgeLabel(ageLabel?: string): string {
   if (!ageLabel) return "Все возрасты";
   // Normalize: extract range like "3-5", "6-8", "9-12"
   const range = ageLabel.match(/(\d+[-–]\d+)/);
-  if (range) return ;
+  if (range) return range[0];
   const single = ageLabel.match(/(\d+)/);
-  if (single) return ;
+  if (single) return single[0] + "+";
   return ageLabel;
 }
 
@@ -113,7 +113,7 @@ export function MyStories({
 
         <div className="stories-header">
           <h1>📚 Библиотека</h1>
-          <button className="btn-back-menu" onClick={onBack}>← В библиотеку</button>
+          <button className="btn-back-menu" onClick={onBack}>Выход</button>
         </div>
 
         {shelves.length === 0 ? (
@@ -149,6 +149,9 @@ export function MyStories({
                           }
                         }}
                       >
+                        <div className="book-spine-header">
+                          {story.title.split(" ").slice(0, 2).join(" ")}
+                        </div>
                         <div className="book-spine-images">
                           {/* Мир */}
                           <div className="book-spine-img-wrap">
@@ -170,9 +173,6 @@ export function MyStories({
                               ? <img src={story.antagonistImage} alt="Антигерой" />
                               : <div className="placeholder">⚔️</div>}
                           </div>
-                        </div>
-                        <div className="book-spine-footer">
-                          {story.title.split(" ").slice(0, 2).join(" ")}
                         </div>
                       </div>
                     );

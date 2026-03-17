@@ -113,7 +113,13 @@ function App() {
         const data = await response.json();
         // Преобразуем старый формат v1 в v2 (если нужно)
         // Пока просто сохраняем как есть
+        console.log("[DEBUG] Loaded stories from API:", data.length, "stories");
+        data.forEach((story: Story, idx: number) => {
+          console.log(`  [${idx}] ${story.title} - worldMode: ${story.worldMode}, ageLabel: ${story.ageLabel}, chapters: ${story.chapters?.length}`);
+        });
         setStories(data);
+      } else {
+        console.error("[ERROR] API returned status:", response.status);
       }
     } catch (error) {
       console.error("Failed to load stories:", error);
@@ -194,13 +200,21 @@ function App() {
       };
 
       const persistedStory = await persistStoryAssets(storyWithChapter);
+      console.log("[DEBUG] Saving story:", persistedStory.title, "worldMode:", persistedStory.worldMode);
 
-      await fetch("/api/stories", {
+      const saveResponse = await fetch("/api/stories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(persistedStory),
       });
 
+      if (!saveResponse.ok) {
+        const errorText = await saveResponse.text();
+        console.error("[ERROR] Failed to save story:", saveResponse.status, errorText);
+        throw new Error(`Failed to save: ${saveResponse.status}`);
+      }
+
+      console.log("[DEBUG] Story saved successfully");
       setCurrentStory(persistedStory);
       setStories((prev) => [...prev, persistedStory]);
       setShowChapterGenModal(false);

@@ -208,9 +208,13 @@ app.get("/api/stories", (req, res) => {
   try {
     const stories = db.prepare("SELECT * FROM stories ORDER BY updated_at DESC").all();
     const transformed = stories.map(transformStoryFromDB);
+    console.log(`[API /stories] Returning ${transformed.length} stories`);
+    transformed.slice(0, 3).forEach((s, idx) => {
+      console.log(`  [${idx}] ${s.title} - worldMode: ${s.worldMode}, chapters: ${s.chapters?.length || 0}`);
+    });
     res.json(transformed);
   } catch (e) {
-    console.error(e);
+    console.error("[API /stories] Error:", e);
     res.status(500).json({ error: "Failed to fetch stories" });
   }
 });
