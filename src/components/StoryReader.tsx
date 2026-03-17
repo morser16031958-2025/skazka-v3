@@ -95,13 +95,6 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
   const world = resolveGenre(story.worldMode);
   const defaultBg = "#1a0f00";
 
-  useEffect(() => {
-    if (chapter) {
-      console.log(`[StoryReader] Открыта глава: "${chapter.title}" (id: ${chapter.id})`);
-      console.log(`  Дочерние главы:`, story.chapters.filter(c => c.parentChapterId === chapter.id));
-    }
-  }, [chapter?.id]);
-
   // Issue 4: Always show all 3 choices for current chapter
   let visibleChoices = chapter?.choices || [];
 
@@ -179,9 +172,13 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
         choiceIndex: choiceIdx >= 0 ? choiceIdx : undefined,
       };
 
+      const updatedChapters = story.chapters.map((node) =>
+        node.id === chapter.id ? { ...node, selectedChoiceText: choiceText } : node
+      );
+
       const updatedStory: Story = {
         ...story,
-        chapters: [...story.chapters, newChapter],
+        chapters: [...updatedChapters, newChapter],
         currentChapter: newChapter,
         updatedAt: new Date().toISOString(),
       };
@@ -251,10 +248,9 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
             <div className="choices-grid">
               {visibleChoices.map((choice, choiceIdx) => {
                 const isSelected = selectedChoices.has(choice.text);
-                const isUsed = chapter ? !!getChildChapter(story.chapters, chapter.id, choiceIdx) : false;
-                if (isUsed) {
-                  console.log(`✓ ${choice.text} - дочерняя глава найдена`);
-                }
+                const isUsed = chapter
+                  ? !!getChildChapter(story.chapters, chapter.id, choiceIdx) || chapter.selectedChoiceText === choice.text
+                  : false;
                 return (
                   <button
                     key={choice.id}
