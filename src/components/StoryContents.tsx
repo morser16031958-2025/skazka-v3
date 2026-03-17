@@ -79,22 +79,16 @@ function TreeNodeRow({
   return (
     <>
       <div
-        className={`tree-node ${isCurrent ? "tree-node--current" : ""} ${
-          isLeaf ? "tree-node--leaf" : ""
-        }`}
-        onClick={isLeaf ? () => onSelect(node.chapter.id) : undefined}
-        role={isLeaf ? "button" : undefined}
-        tabIndex={isLeaf ? 0 : undefined}
-        onKeyDown={
-          isLeaf
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onSelect(node.chapter.id);
-                }
-              }
-            : undefined
-        }
+        className={`tree-node tree-node--leaf ${isCurrent ? "tree-node--current" : ""}`}
+        onClick={() => onSelect(node.chapter.id)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onSelect(node.chapter.id);
+          }
+        }}
       >
         <span className="tree-prefix" aria-hidden="true">
           {prefix}

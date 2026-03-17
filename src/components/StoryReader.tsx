@@ -12,64 +12,6 @@ interface StoryReaderProps {
   onBack: () => void;
 }
 
-const STOP_WORDS = new Set([
-  "и",
-  "в",
-  "на",
-  "по",
-  "к",
-  "с",
-  "а",
-  "но",
-  "или",
-  "что",
-  "как",
-  "мы",
-  "вы",
-  "он",
-  "она",
-  "они",
-  "это",
-  "то",
-  "за",
-  "для",
-  "же",
-  "ли",
-  "да"
-]);
-
-function tokenize(text: string) {
-  return text
-    .toLowerCase()
-    .replace(/[^a-zа-я0-9\s]/gi, " ")
-    .split(/\s+/)
-    .filter((word) => word.length > 3 && !STOP_WORDS.has(word));
-}
-
-function buildReferenceText(nextChapter: ChapterNode | null) {
-  if (!nextChapter) return "";
-  return [nextChapter.title, nextChapter.narration_text, nextChapter.state_summary]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function guessSelectedChoice(choices: ChapterNode["choices"], nextChapter: ChapterNode | null) {
-  if (!choices?.length || !nextChapter) return null;
-  const referenceTokens = new Set(tokenize(buildReferenceText(nextChapter)));
-  let best: string | null = null;
-  let bestScore = 0;
-
-  choices.forEach((choice) => {
-    const tokens = tokenize(choice.text);
-    const score = tokens.reduce((acc, token) => acc + (referenceTokens.has(token) ? 1 : 0), 0);
-    if (score > bestScore) {
-      bestScore = score;
-      best = choice.text;
-    }
-  });
-
-  return bestScore > 0 ? best : null;
-}
 
 function getChildChapter(
   chapters: ChapterNode[],
