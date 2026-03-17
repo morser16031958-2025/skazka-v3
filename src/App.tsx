@@ -284,9 +284,9 @@ function App() {
     setScreen("contents");
   };
 
-  const handleOpenChapter = (chapterIndex: number) => {
+  const handleOpenChapter = (chapterId: string) => {
     if (!currentStory) return;
-    const chapter = currentStory.chapters[chapterIndex] || null;
+    const chapter = currentStory.chapters.find((c) => c.id === chapterId) || null;
     setCurrentStory({ ...currentStory, currentChapter: chapter });
     setScreen("reader");
   };

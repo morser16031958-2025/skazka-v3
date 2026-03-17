@@ -1,0 +1,12 @@
+# AI Provider: "n1n" or "openrouter"
+AI_PROVIDER=openrouter
+
+# N1N.ai models
+N1N_TEXT_MODEL=gemini-2.5-flash
+N1N_IMAGE_MODEL=gemini-2.5-flash-image
+N1N_API_KEY=sk-BuYLm11UUL5VYdbFFTfgWz1HEM61S11IYE7PwcMzJrczpl00
+
+# OpenRouter models
+OPENROUTER_API_KEY=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
+OPENROUTER_TEXT_MODEL=google/gemini-2.5-flash
+OPENROUTER_IMAGE_MODEL=meta-llama/llama-3.2-11b-vision-instruct

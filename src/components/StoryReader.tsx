@@ -71,11 +71,14 @@ function guessSelectedChoice(choices: ChapterNode["choices"], nextChapter: Chapt
   return bestScore > 0 ? best : null;
 }
 
-function getNextChapter(story: Story, current: ChapterNode | null) {
-  if (!current) return null;
-  const index = story.chapters.findIndex((node) => node.id === current.id);
-  if (index === -1) return null;
-  return story.chapters[index + 1] || null;
+function getChildChapter(
+  chapters: ChapterNode[],
+  parentId: string,
+  choiceIndex: number
+): ChapterNode | undefined {
+  return chapters.find(
+    (c) => c.parentChapterId === parentId && c.choiceIndex === choiceIndex
+  );
 }
 
 function resolveGenre(mode?: string) {
@@ -114,12 +117,16 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
   const handleChoiceSelect = async (choiceText: string) => {
     if (loading) return;
 
-    if (selectedChoices.has(choiceText)) {
-      const nextChapter = getNextChapter(story, chapter);
-      if (nextChapter) {
+    const choiceIdx = chapter?.choices.findIndex((c) => c.text === choiceText) ?? -1;
+    const existingChild = choiceIdx >= 0
+      ? getChildChapter(story.chapters, chapter!.id, choiceIdx)
+      : undefined;
+
+    if (selectedChoices.has(choiceText) || existingChild) {
+      if (existingChild) {
         onChapterUpdate({
           ...story,
-          currentChapter: nextChapter,
+          currentChapter: existingChild,
           updatedAt: new Date().toISOString(),
         });
       }
@@ -141,6 +148,7 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
       );
 
       const newNodeId = uuidv4();
+      const choiceIdx = chapter.choices.findIndex((c) => c.text === choiceText);
 
       let sceneImageUrl = "";
       try {
@@ -161,15 +169,13 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
           text: c.button_text || c.text || "",
         })),
         state_summary: response.state_summary_end,
+        parentChapterId: chapter.id,
+        choiceIndex: choiceIdx >= 0 ? choiceIdx : undefined,
       };
-
-      const updatedChapters = story.chapters.map((node) =>
-        node.id === chapter.id ? { ...node, selectedChoiceText: choiceText } : node
-      );
 
       const updatedStory: Story = {
         ...story,
-        chapters: [...updatedChapters, newChapter],
+        chapters: [...story.chapters, newChapter],
         currentChapter: newChapter,
         updatedAt: new Date().toISOString(),
       };
@@ -237,9 +243,9 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
           <div className="choices-section">
             <h2 className="choices-title">Что будет дальше?</h2>
             <div className="choices-grid">
-              {visibleChoices.map((choice) => {
+              {visibleChoices.map((choice, choiceIdx) => {
                 const isSelected = selectedChoices.has(choice.text);
-                const isUsed = chapter.selectedChoiceText === choice.text;
+                const isUsed = !!getChildChapter(story.chapters, chapter.id, choiceIdx);
                 return (
                   <button
                     key={choice.id}

@@ -8,7 +8,11 @@
       "Bash(taskkill:*)",
       "Bash(kill:*)",
       "Bash(curl:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(git add:*)",
+      "Bash(git rm:*)",
+      "Bash(git push:*)",
+      "Bash(git tag:*)"
     ]
   }
 }

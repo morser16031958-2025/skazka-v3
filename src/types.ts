@@ -13,6 +13,8 @@ export interface ChapterNode {
   choices: Choice[];
   state_summary: string;
   selectedChoiceText?: string;
+  parentChapterId?: string;
+  choiceIndex?: number;
 }
 
 export interface Story {
