@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Genre, GENRES, AgeGroup } from "../config/worlds";
 import { Story } from "../types";
-import { generateWorldSetup, generateImage, WorldSetupOption } from "../services/ai";
+import { generateWorldSetup, generateImage, WorldSetupOption, callLocalApi } from "../services/ai";
 import "./StoryWizard.css";
 
 interface StoryWizardProps {
@@ -32,7 +32,9 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: S
   const [progress, setProgress] = useState(0);
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const [options, setOptions] = useState<WorldSetupOption[]>([]);
-  const [typedText, setTypedText] = useState("");
+  const [typedWorlds, setTypedWorlds] = useState<string[]>([]);
+  const [currentWorldIndex, setCurrentWorldIndex] = useState(0);
+  const [progressStatus, setProgressStatus] = useState("");
   const [showImageGenModal, setShowImageGenModal] = useState(false);
   const [existingStories, setExistingStories] = useState<Story[]>([]);
   const [bgImageIndex, setBgImageIndex] = useState(0);
@@ -58,26 +60,6 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: S
   }, [showImageGenModal, existingStories]);
 
   useEffect(() => {
-    if (!loading || step !== "generating") {
-      setTypedText("");
-      return;
-    }
-
-    const fullText = world.loading_text || "";
-    let index = 0;
-    setTypedText("");
-    const timer = setInterval(() => {
-      index += 1;
-      setTypedText(fullText.slice(0, index));
-      if (index >= fullText.length) {
-        clearInterval(timer);
-      }
-    }, 50);
-
-    return () => clearInterval(timer);
-  }, [loading, step, world.loading_text]);
-
-  useEffect(() => {
     if (!loading || step !== "generating") return;
     const progressInterval = setInterval(() => {
       setProgress(prev => {
@@ -93,15 +75,75 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: S
     setLoading(true);
     setError(null);
     setProgress(0);
+    setTypedWorlds([]);
+    setCurrentWorldIndex(0);
+    
     try {
-      const setupOptions = await generateWorldSetup(
-        worldMode,
-        valueOverride ?? selectedValue ?? undefined,
-        ageGroup
-      );
-
-      setOptions(setupOptions);
-      setProgress(100);
+      setProgressStatus("Создаю 1 мир...");
+      
+      // Generate each world one by one
+      const allOptions: WorldSetupOption[] = [];
+      const world = GENRES[worldMode];
+      
+      for (let i = 0; i < 3; i++) {
+        setCurrentWorldIndex(i);
+        setProgressStatus(`Создаю ${i + 1} мир...`);
+        
+        const response = await callLocalApi<{ world_options?: Array<any> }>("/api/ai/generate-world", {
+          genre: world.name,
+          ageGroup,
+          valueTheme: valueOverride ?? selectedValue ?? undefined,
+          clientRequestId: `world-${i}-${Date.now()}`,
+        });
+        
+        const option = response?.world_options?.[0];
+        if (option) {
+          const resolvedWorld: WorldSetupOption["world"] = {
+            id: option?.id,
+            name: option?.name || "Волшебный мир",
+            description_short: option?.description_short || option?.description_long || option?.name || "Таинственный мир",
+            description_long: option?.description_long || option?.description_short || option?.name || "Таинственный мир",
+            world_rules: option?.world_rules,
+            visual_style: option?.visual_style,
+            cover_image_prompt: option?.cover_image_prompt,
+            hero_description: option?.hero_description,
+            conflict_description: option?.conflict_description,
+          };
+          
+          // Typewriter effect for this world
+          const fullText = `${resolvedWorld.name}\n\n${resolvedWorld.description_short}\n\nГерой: ${resolvedWorld.hero_description}\n\nАнтагонист: ${resolvedWorld.conflict_description}`;
+          
+          let textIndex = 0;
+          await new Promise<void>((resolve) => {
+            const timer = setInterval(() => {
+              textIndex += 3;
+              setTypedWorlds(prev => {
+                const newWorlds = [...prev];
+                newWorlds[i] = fullText.slice(0, textIndex);
+                return newWorlds;
+              });
+              if (textIndex >= fullText.length) {
+                clearInterval(timer);
+                resolve();
+              }
+            }, 30);
+          });
+          
+          setProgressStatus(`Рисую ${i + 1} мир...`);
+          const prompt = resolvedWorld.cover_image_prompt || resolvedWorld.description_short;
+          const worldImage = await generateImage(prompt, world.imageStyleSuffix).catch(() => "");
+          
+          allOptions.push({
+            world: resolvedWorld,
+            worldImage,
+          });
+        }
+        
+        setProgress(Math.round(((i + 1) / 3) * 100));
+      }
+      
+      setOptions(allOptions);
+      setProgressStatus("Готово!");
       setStep("options");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Ошибка при создании мира";
@@ -200,11 +242,17 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: S
         <div className="wizard-generating" style={{ backgroundColor: loading ? world.accentColor : undefined }}>
           {loading ? (
             <div className="loading-screen">
-              <h2>{typedText}</h2>
+              <div className="worlds-typing">
+                {typedWorlds.map((text, i) => (
+                  <div key={i} className={`world-typing ${i < currentWorldIndex ? 'completed' : i === currentWorldIndex ? 'current' : ''}`}>
+                    <pre className="typing-text">{text}{i === currentWorldIndex && <span className="cursor">▋</span>}</pre>
+                  </div>
+                ))}
+              </div>
               <div className="progress-container">
                 <div className="progress-bar" style={{ width: `${progress}%` }}></div>
               </div>
-              <p className="progress-text">{Math.round(progress)}%</p>
+              <p className="progress-status">{progressStatus}</p>
             </div>
           ) : (
             <>

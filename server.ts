@@ -904,9 +904,13 @@ app.post("/api/ai/generate-chapter", async (req, res) => {
 ${choiceText ? `Выбор читателя: ${choiceText}` : "Это первая глава."} 
 Длина: 3000-3500 символов. 
 РОВНО 3 варианта выборов. 
-Верни JSON: chapter_id, title, narration_text, 
-scene_image_prompt, choices (3 объекта: choice_id, 
-button_text, intent_tag), state_summary_end.`;
+Верни JSON с полями:
+- chapter_id (строка)
+- title (строка)
+- narration_text (текст главы, 3000-3500 символов)
+- scene_image_prompt (строка для генерации картинки)
+- choices (массив из 3 объектов, каждый с полями: id, text, intent_tag)
+- state_summary_end (строка)`;
 
     const result = await callOpenRouterJson(generatedPrompt, resolvedSystemPrompt);
     if (clientRequestId) {

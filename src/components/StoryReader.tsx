@@ -92,26 +92,17 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
   const world = resolveGenre(story.worldMode);
   const defaultBg = "#1a0f00";
   const nextChapter = getNextChapter(story, chapter);
-  const inferredChoice = chapter?.selectedChoiceText || guessSelectedChoice(chapter?.choices, nextChapter);
 
-  // Issue 4: Determine visible choices based on story state
+  // Issue 4: Always show all 3 choices for current chapter
   let visibleChoices = chapter?.choices || [];
-  if (nextChapter && inferredChoice && chapter?.choices) {
-    // Has next chapter and inferred choice → show only selected
-    visibleChoices = chapter.choices.filter((choice) => choice.text === inferredChoice);
-  } else if (!nextChapter) {
-    // No next chapter (last chapter) → show all choices
-    visibleChoices = chapter?.choices || [];
-  }
-  // If has next chapter but no inference → show all choices (default already set)
 
   useEffect(() => {
     if (!chapter) {
       setSelectedChoices(new Set());
       return;
     }
-    setSelectedChoices(inferredChoice ? new Set([inferredChoice]) : new Set());
-  }, [chapter?.id, story.id, story.chapters, inferredChoice]);
+    setSelectedChoices(new Set());
+  }, [chapter?.id, story.id, story.chapters]);
 
   useEffect(() => {
     if (!chapter) return;
@@ -167,7 +158,7 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
         scene_image_url: sceneImageUrl,
         choices: response.choices.map((c) => ({
           id: uuidv4(),
-          text: c.text,
+          text: c.button_text || c.text || "",
         })),
         state_summary: response.state_summary_end,
       };
@@ -231,7 +222,9 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
 
       <div className="content-wrapper">
         <h1 className="chapter-title">
-          {`Глава ${Math.max(1, story.chapters.findIndex((c) => c.id === chapter.id) + 1)}. ${chapter.title}`}
+          {chapter.title?.toLowerCase().startsWith("глава") 
+            ? chapter.title 
+            : `Глава ${Math.max(1, story.chapters.findIndex((c) => c.id === chapter.id) + 1)}. ${chapter.title}`}
         </h1>
 
         <div className="narration">
@@ -244,16 +237,22 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
           <div className="choices-section">
             <h2 className="choices-title">Что будет дальше?</h2>
             <div className="choices-grid">
-              {visibleChoices.map((choice) => (
-                <button
-                  key={choice.id}
-                  className={`choice-button ${selectedChoices.has(choice.text) ? 'choice-selected' : ''}`}
-                  onClick={() => handleChoiceSelect(choice.text)}
-                  disabled={loading}
-                >
-                  {choice.text}
-                </button>
-              ))}
+              {visibleChoices.map((choice) => {
+                const isSelected = selectedChoices.has(choice.text);
+                const isUsed = chapter.selectedChoiceText === choice.text;
+                return (
+                  <button
+                    key={choice.id}
+                    className={`choice-button ${isSelected ? 'choice-selected' : ''} ${isUsed ? 'choice-used' : ''}`}
+                    onClick={() => handleChoiceSelect(choice.text)}
+                    disabled={loading}
+                    title={isUsed ? "Этот вариант уже использован" : ""}
+                  >
+                    {choice.text}
+                    {isUsed && <span className="choice-used-badge">✓ Использовано</span>}
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}

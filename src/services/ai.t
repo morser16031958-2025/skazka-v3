@@ -152,15 +152,7 @@ export async function generateChapter(
 ${choiceText ? `Выбор читателя: ${choiceText}` : "Это первая глава."}
 
 Длина текста: 800-1200 символов.
-Верни JSON строго по схеме:
-{
-  "title": "...",
-  "narration_text": "...",
-  "scene_image_prompt": "...",
-  "choices": [{"text": "..."}, {"text": "..."}, {"text": "..."}],
-  "state_summary_end": "..."
-}
-choices — ровно 3 объекта с полем text.`;
+Верни JSON: title, narration_text, scene_image_prompt, choices (ровно 3), state_summary_end.`;
 
   const response = await callLocalApi<any>("/api/ai/generate-chapter", {
     worldMode,
@@ -178,16 +170,11 @@ choices — ровно 3 объекта с полем text.`;
 
   console.log("[generateChapter] Raw choices:", response.choices);
 
-  // Normalize choices: handle all formats — {text}, {button_text}, plain strings
-  const normalizedChoices = response.choices.map((c: any, index: number) => {
-    let text = "";
-    if (typeof c === "string") {
-      text = c;
-    } else if (typeof c === "object" && c !== null) {
-      text = c.text || c.button_text || c.label || c.choice || "";
-    }
-    return { id: `choice-${index + 1}`, text };
-  });
+  // Normalize choices: server sends button_text but we expect text
+  const normalizedChoices = response.choices.map((c: any, index: number) => ({
+    id: `choice-${index + 1}`,
+    text: c.text || c.button_text || "",
+  }));
 
   console.log("[generateChapter] Normalized choices:", normalizedChoices);
 
