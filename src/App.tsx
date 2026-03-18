@@ -354,7 +354,7 @@ function App() {
       )}
 
       {screen === "menu" && (
-        <DoorSelect onSelect={handleDoorSelect} />
+        <DoorSelect onSelect={handleDoorSelect} onExit={() => setScreen("landing")} />
       )}
 
       {screen === "wizard" && selectedWorldMode && (
@@ -363,6 +363,7 @@ function App() {
           ageGroup={selectedAgeGroup}
           onStoryCreated={handleStoryCreated}
           onCancel={handleBackToMenu}
+          onExitToLanding={() => setScreen("landing")}
         />
       )}
 

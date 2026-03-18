@@ -4,6 +4,7 @@ import "./DoorSelect.css";
 
 interface DoorSelectProps {
   onSelect: (genre: Genre, ageGroup: AgeGroup) => void;
+  onExit: () => void;
 }
 
 const AGE_GROUPS: Array<{ id: AgeGroup; label: string }> = [
@@ -14,7 +15,7 @@ const AGE_GROUPS: Array<{ id: AgeGroup; label: string }> = [
   { id: "auto", label: "AI решит" },
 ];
 
-export function DoorSelect({ onSelect }: DoorSelectProps) {
+export function DoorSelect({ onSelect, onExit }: DoorSelectProps) {
   const genres = Object.keys(GENRES) as Genre[];
   const [selectedGenre, setSelectedGenre] = useState<Genre | null>(null);
   const [ageGroup, setAgeGroup] = useState<AgeGroup>("auto");
@@ -25,7 +26,9 @@ export function DoorSelect({ onSelect }: DoorSelectProps) {
       <div className="door-overlay" />
       
       <div className="door-header">
-        <h1 className="main-title">Выбери свой мир</h1>
+        <button className="door-exit" type="button" onClick={onExit}>Выход</button>
+        <h1 className="main-title">Выбери свой жанр</h1>
+        <div className="door-header-spacer" />
       </div>
 
       <div className="genre-grid">

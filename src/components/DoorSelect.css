@@ -30,9 +30,11 @@
   position: relative;
   z-index: 2;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: 1600px;
 }
 
 .main-title {
@@ -45,6 +47,28 @@
   text-align: center;
   margin: 0;
   letter-spacing: -0.02em;
+  flex: 1;
+}
+
+.door-exit {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 0.75rem 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.door-exit:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.door-header-spacer {
+  width: 110px;
 }
 
 .genre-grid {

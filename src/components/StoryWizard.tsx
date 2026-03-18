@@ -10,6 +10,7 @@ interface StoryWizardProps {
   ageGroup: AgeGroup;
   onStoryCreated: (story: Story) => void;
   onCancel: () => void;
+  onExitToLanding: () => void;
 }
 
 const VALUES = [
@@ -23,7 +24,7 @@ const VALUES = [
   "⭐ Об ответственности"
 ];
 
-export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: StoryWizardProps) {
+export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onExitToLanding }: StoryWizardProps) {
   const world = GENRES[worldMode];
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<"value" | "generating" | "options" | "preview">("value");
@@ -216,7 +217,11 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: S
     >
       {step === "value" && (
         <div className="wizard-values">
-          <h2 className="values-title">О чём будет твоя история?</h2>
+          <div className="wizard-values-header">
+            <button className="btn-secondary" onClick={onCancel}>Выход</button>
+            <h2 className="values-title">Выбери, о чем будет твоя история</h2>
+            <div className="wizard-values-spacer" />
+          </div>
           <div className="values-grid">
             {VALUES.map((value) => (
               <button
@@ -233,9 +238,6 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: S
               </button>
             ))}
           </div>
-          <button className="btn-secondary" onClick={onCancel}>
-            ← Отмена
-          </button>
         </div>
       )}
       {step === "generating" && !showImageGenModal && (
@@ -275,7 +277,11 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel }: S
       )}
       {step === "options" && (
         <div className="wizard-options">
-          <h2>Выбери свой мир</h2>
+          <div className="wizard-options-header">
+            <button className="btn-secondary" onClick={onExitToLanding}>Выход</button>
+            <h2>Выбери свой жанр</h2>
+            <div className="wizard-options-spacer" />
+          </div>
           {error && <div className="error-message">{error}</div>}
           <div className="options-grid">
             {options.map((option, index) => (
