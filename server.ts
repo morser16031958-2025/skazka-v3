@@ -934,24 +934,34 @@ app.post("/api/ai/generate-world", async (req, res) => {
       return res.status(400).json({ error: "Missing genre" });
     }
 
-    const resolvedSystemPrompt = systemPrompt || DEFAULT_SYSTEM_INSTRUCTION;
+    const resolvedSystemPrompt =
+      systemPrompt ||
+      "Следуй инструкциям пользователя. Возвращай только валидный JSON, без дополнительного текста.";
     const resolvedValueTheme = valueTheme || "не указано";
     const resolvedAntiValueTheme = antiValueTheme || resolveAntiValue(valueTheme) || "не указано";
-    const prompt = `Ты знаменитый детский писатель тонко понимающий разные жанры сказок и особенности возраста детей, создающий необычно яркие и волшебные образы. Сгенерируй РОВНО 3 варианта волшебного мира. 
-Каждый вариант должен быть УНИКАЛЬНЫМ — 
-разные названия, разные правила, разная атмосфера. 
-Жанр: ${genre}. 
-Возраст: ${ageGroup}. 
-Ценность: ${resolvedValueTheme}. 
-Антиценность: ${resolvedAntiValueTheme}. 
+    const prompt = `Ты знаменитый детский писатель, тонко понимающий разные жанры сказок и особенности возраста детей, создающий яркие и волшебные образы.
+Сгенерируй РОВНО 3 мира. Они должны быть СИЛЬНО разными тематически:
+- разные центральные темы (theme_tag),
+- разные центральные образы/метафоры,
+- разные среды/локации,
+- разные типы конфликтов.
 
-Верни JSON с полем world_options — массив из РОВНО 3 
-объектов, каждый с полями: 
-id, name, description_short, description_long, 
-world_rules, visual_style, cover_image_prompt, 
-hero_description, conflict_description. 
+Жанр: ${genre}.
+Возраст: ${ageGroup}.
+Ценность: ${resolvedValueTheme}.
+Антиценность: ${resolvedAntiValueTheme}.
 
-ВАЖНО: все 3 мира должны отличаться друг от друга!`;
+Верни JSON:
+world_options: [
+ {id, name, theme_tag, theme_summary, description_short, description_long,
+  world_rules, visual_style, cover_image_prompt, hero_description, conflict_description},
+ ... (ровно 3)
+]
+
+ВАЖНО:
+- theme_tag у всех 3 должен быть разный
+- ключевые образы/локации не должны повторяться
+- не повторяй ключевые слова в названиях миров`;
 
     const result = await callOpenRouterJson(prompt, resolvedSystemPrompt);
     res.json(result);

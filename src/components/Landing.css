@@ -39,6 +39,7 @@
   justify-content: flex-end;
   align-items: center;
   padding-bottom: 80px;
+  transform: none;
 }
 
 .landing-subtitle {

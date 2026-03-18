@@ -13,16 +13,53 @@ interface StoryWizardProps {
   onExitToLanding: () => void;
 }
 
-const VALUES = [
-  "✨ О настоящей дружбе",
-  "🦁 О смелости",
-  "🌟 О доброте",
-  "🔍 О любопытстве",
-  "💫 О честности",
-  "🌱 О труде и терпении",
-  "🤝 Об уважении",
-  "⭐ Об ответственности"
-];
+const VALUE_MATRIX: Record<AgeGroup, Record<Genre, string[]>> = {
+  "3-5": {
+    fairytale: ["доброта", "дружба", "смелость", "любопытство"],
+    animals: ["забота", "дружба", "доброта", "любопытство"],
+    magic_soft: ["доброта", "смелость", "дружба", "любопытство"],
+    magic: ["тайна и чудо", "смелость", "дружба", "доброта"],
+    adventure: ["смелость", "дружба", "доброта", "любопытство"],
+    fantasy: ["секреты космоса", "дружба", "доброта", "смелость"],
+  },
+  "6-8": {
+    fairytale: ["смелость", "доброе сердце", "честность", "труд"],
+    animals: ["забота", "дружба", "честность", "доброта"],
+    magic_soft: ["честное чудо", "любопытство", "доброта", "смелость"],
+    magic: ["забота", "честность", "любопытство", "смелость"],
+    adventure: ["смелость", "честность", "забота", "дружба"],
+    fantasy: ["забота", "любопытство", "честность", "дружба"],
+  },
+  "9-12": {
+    fairytale: ["честное слово", "уважение", "забота", "смелость"],
+    animals: ["уважение", "верность", "честность", "забота"],
+    magic_soft: ["забота", "честность", "дружба", "смелость"],
+    magic: ["уважение", "честность", "забота", "смелость"],
+    adventure: ["забота", "смелость", "честность", "уважение"],
+    fantasy: ["забота", "честность", "уважение", "любопытство"],
+  },
+  "13+": {
+    fairytale: ["твой выбор", "достоинство", "забота", "уважение"],
+    animals: ["сострадание", "забота", "уважение", "достоинство"],
+    magic_soft: ["твой выбор", "честность", "забота", "достоинство"],
+    magic: ["твой выбор", "уважение", "честность", "забота"],
+    adventure: ["твой выбор", "честность", "забота", "уважение"],
+    fantasy: ["твой выбор", "уважение", "достоинство", "забота"],
+  },
+  auto: {
+    fairytale: ["смелость", "доброе сердце", "честность", "труд"],
+    animals: ["забота", "дружба", "честность", "доброта"],
+    magic_soft: ["честное чудо", "любопытство", "доброта", "смелость"],
+    magic: ["забота", "честность", "любопытство", "смелость"],
+    adventure: ["смелость", "честность", "забота", "дружба"],
+    fantasy: ["забота", "любопытство", "честность", "дружба"],
+  },
+};
+
+function getValueOptions(ageGroup: AgeGroup, worldMode: Genre): string[] {
+  const resolvedAge: AgeGroup = ageGroup === "auto" ? "6-8" : ageGroup;
+  return VALUE_MATRIX[resolvedAge]?.[worldMode] || VALUE_MATRIX["6-8"].fairytale;
+}
 
 export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onExitToLanding }: StoryWizardProps) {
   const world = GENRES[worldMode];
@@ -33,7 +70,6 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
   const [progress, setProgress] = useState(0);
   const [selectedValue, setSelectedValue] = useState<string | null>(null);
   const [options, setOptions] = useState<WorldSetupOption[]>([]);
-  const [typedWorlds, setTypedWorlds] = useState<string[]>([]);
   const [currentWorldIndex, setCurrentWorldIndex] = useState(0);
   const [progressStatus, setProgressStatus] = useState("");
   const [showImageGenModal, setShowImageGenModal] = useState(false);
@@ -76,70 +112,47 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
     setLoading(true);
     setError(null);
     setProgress(0);
-    setTypedWorlds([]);
     setCurrentWorldIndex(0);
     
     try {
-      setProgressStatus("Создаю 1 мир...");
-      
-      // Generate each world one by one
-      const allOptions: WorldSetupOption[] = [];
+      setProgressStatus("Создаю мир 1 из 3...");
       const world = GENRES[worldMode];
-      
-      for (let i = 0; i < 3; i++) {
+      const allOptions: WorldSetupOption[] = [];
+      const response = await callLocalApi<{ world_options?: Array<any> }>("/api/ai/generate-world", {
+        genre: world.name,
+        ageGroup,
+        valueTheme: valueOverride ?? selectedValue ?? undefined,
+        clientRequestId: `world-${Date.now()}`,
+      });
+
+      const rawOptions = Array.isArray(response?.world_options) ? response.world_options.slice(0, 3) : [];
+
+      for (let i = 0; i < rawOptions.length; i += 1) {
+        const option = rawOptions[i];
         setCurrentWorldIndex(i);
-        setProgressStatus(`Создаю ${i + 1} мир...`);
-        
-        const response = await callLocalApi<{ world_options?: Array<any> }>("/api/ai/generate-world", {
-          genre: world.name,
-          ageGroup,
-          valueTheme: valueOverride ?? selectedValue ?? undefined,
-          clientRequestId: `world-${i}-${Date.now()}`,
+        setProgressStatus(`Создаю мир ${i + 1} из 3...`);
+
+        const resolvedWorld: WorldSetupOption["world"] = {
+          id: option?.id,
+          name: option?.name || "Волшебный мир",
+          description_short: option?.description_short || option?.description_long || option?.name || "Таинственный мир",
+          description_long: option?.description_long || option?.description_short || option?.name || "Таинственный мир",
+          world_rules: option?.world_rules,
+          visual_style: option?.visual_style,
+          cover_image_prompt: option?.cover_image_prompt,
+          hero_description: option?.hero_description,
+          conflict_description: option?.conflict_description,
+        };
+
+        const prompt = resolvedWorld.cover_image_prompt || resolvedWorld.description_short;
+        const worldImage = await generateImage(prompt, world.imageStyleSuffix).catch(() => "");
+
+        allOptions.push({
+          world: resolvedWorld,
+          worldImage,
         });
-        
-        const option = response?.world_options?.[0];
-        if (option) {
-          const resolvedWorld: WorldSetupOption["world"] = {
-            id: option?.id,
-            name: option?.name || "Волшебный мир",
-            description_short: option?.description_short || option?.description_long || option?.name || "Таинственный мир",
-            description_long: option?.description_long || option?.description_short || option?.name || "Таинственный мир",
-            world_rules: option?.world_rules,
-            visual_style: option?.visual_style,
-            cover_image_prompt: option?.cover_image_prompt,
-            hero_description: option?.hero_description,
-            conflict_description: option?.conflict_description,
-          };
-          
-          // Typewriter effect for this world
-          const fullText = `${resolvedWorld.name}\n\n${resolvedWorld.description_short}\n\nГерой: ${resolvedWorld.hero_description}\n\nАнтагонист: ${resolvedWorld.conflict_description}`;
-          
-          let textIndex = 0;
-          await new Promise<void>((resolve) => {
-            const timer = setInterval(() => {
-              textIndex += 3;
-              setTypedWorlds(prev => {
-                const newWorlds = [...prev];
-                newWorlds[i] = fullText.slice(0, textIndex);
-                return newWorlds;
-              });
-              if (textIndex >= fullText.length) {
-                clearInterval(timer);
-                resolve();
-              }
-            }, 30);
-          });
-          
-          setProgressStatus(`Рисую ${i + 1} мир...`);
-          const prompt = resolvedWorld.cover_image_prompt || resolvedWorld.description_short;
-          const worldImage = await generateImage(prompt, world.imageStyleSuffix).catch(() => "");
-          
-          allOptions.push({
-            world: resolvedWorld,
-            worldImage,
-          });
-        }
-        
+
+        setOptions([...allOptions]);
         setProgress(Math.round(((i + 1) / 3) * 100));
       }
       
@@ -223,7 +236,7 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
             <div className="wizard-values-spacer" />
           </div>
           <div className="values-grid">
-            {VALUES.map((value) => (
+            {getValueOptions(ageGroup, worldMode).map((value) => (
               <button
                 key={value}
                 type="button"
@@ -244,12 +257,19 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
         <div className="wizard-generating" style={{ backgroundColor: loading ? world.accentColor : undefined }}>
           {loading ? (
             <div className="loading-screen">
-              <div className="worlds-typing">
-                {typedWorlds.map((text, i) => (
-                  <div key={i} className={`world-typing ${i < currentWorldIndex ? 'completed' : i === currentWorldIndex ? 'current' : ''}`}>
-                    <pre className="typing-text">{text}{i === currentWorldIndex && <span className="cursor">▋</span>}</pre>
+              <div className="worlds-slider">
+                {options[currentWorldIndex] && (
+                  <div className="world-slide">
+                    <h3 className="world-slide-title">{options[currentWorldIndex].world.name}</h3>
+                    <p className="world-slide-text">{options[currentWorldIndex].world.description_short}</p>
                   </div>
-                ))}
+                )}
+                {!options[currentWorldIndex] && (
+                  <div className="world-slide placeholder">
+                    <h3 className="world-slide-title">Волшебный мир</h3>
+                    <p className="world-slide-text">Создаю историю...</p>
+                  </div>
+                )}
               </div>
               <div className="progress-container">
                 <div className="progress-bar" style={{ width: `${progress}%` }}></div>
