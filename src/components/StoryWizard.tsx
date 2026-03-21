@@ -108,6 +108,14 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
     return () => clearInterval(progressInterval);
   }, [loading, step]);
 
+  useEffect(() => {
+    if (step !== "generating" || options.length === 0) return;
+    const interval = setInterval(() => {
+      setCurrentWorldIndex((prev) => (prev + 1) % options.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [step, options.length]);
+
   const handleGenerateWorld = async (valueOverride?: string) => {
     setLoading(true);
     setError(null);
@@ -115,9 +123,8 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
     setCurrentWorldIndex(0);
     
     try {
-      setProgressStatus("Создаю мир 1 из 3...");
+      setProgressStatus("Создаю описания миров...");
       const world = GENRES[worldMode];
-      const allOptions: WorldSetupOption[] = [];
       const response = await callLocalApi<{ world_options?: Array<any> }>("/api/ai/generate-world", {
         genre: world.name,
         ageGroup,
@@ -127,12 +134,8 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
 
       const rawOptions = Array.isArray(response?.world_options) ? response.world_options.slice(0, 3) : [];
 
-      for (let i = 0; i < rawOptions.length; i += 1) {
-        const option = rawOptions[i];
-        setCurrentWorldIndex(i);
-        setProgressStatus(`Создаю мир ${i + 1} из 3...`);
-
-        const resolvedWorld: WorldSetupOption["world"] = {
+      const allOptions: WorldSetupOption[] = rawOptions.map((option) => ({
+        world: {
           id: option?.id,
           name: option?.name || "Волшебный мир",
           description_short: option?.description_short || option?.description_long || option?.name || "Таинственный мир",
@@ -142,21 +145,27 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
           cover_image_prompt: option?.cover_image_prompt,
           hero_description: option?.hero_description,
           conflict_description: option?.conflict_description,
-        };
+        },
+        worldImage: "",
+      }));
 
-        const prompt = resolvedWorld.cover_image_prompt || resolvedWorld.description_short;
-        const worldImage = await generateImage(prompt, world.imageStyleSuffix).catch(() => "");
-
-        allOptions.push({
-          world: resolvedWorld,
-          worldImage,
-        });
-
-        setOptions([...allOptions]);
-        setProgress(Math.round(((i + 1) / 3) * 100));
+      if (allOptions.length === 0) {
+        throw new Error("Не удалось получить варианты миров");
       }
-      
+
       setOptions(allOptions);
+      setProgressStatus("Создаю иллюстрации...");
+
+      for (let i = 0; i < allOptions.length; i += 1) {
+        const prompt = allOptions[i].world.cover_image_prompt || allOptions[i].world.description_short;
+        const worldImage = await generateImage(prompt, world.imageStyleSuffix).catch(() => "");
+        setOptions((prev) =>
+          prev.map((item, idx) => (idx === i ? { ...item, worldImage } : item))
+        );
+        setProgress(Math.round(((i + 1) / allOptions.length) * 100));
+        setProgressStatus(`Иллюстрация ${i + 1} из ${allOptions.length}...`);
+      }
+
       setProgressStatus("Готово!");
       setStep("options");
     } catch (err) {
@@ -220,7 +229,7 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
   };
 
   return (
-    <div className={`story-wizard ${step === "value" ? "value-mode" : ""} ${step === "options" ? "options-mode" : ""} ${step === "preview" ? "preview-mode" : ""}`}
+    <div className={`story-wizard ${step === "value" ? "value-mode" : ""} ${step === "options" ? "options-mode" : ""} ${step === "preview" ? "preview-mode" : ""} ${step === "generating" ? "generating-mode" : ""}`}
       style={step === "preview" && story?.worldImage ? { 
         backgroundImage: `linear-gradient(180deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.4) 100%), url(${story.worldImage})`,
         backgroundSize: 'cover',
@@ -254,14 +263,31 @@ export function StoryWizard({ worldMode, ageGroup, onStoryCreated, onCancel, onE
         </div>
       )}
       {step === "generating" && !showImageGenModal && (
-        <div className="wizard-generating" style={{ backgroundColor: loading ? world.accentColor : undefined }}>
+        <div className="wizard-generating">
           {loading ? (
             <div className="loading-screen">
               <div className="worlds-slider">
                 {options[currentWorldIndex] && (
-                  <div className="world-slide">
+                  <div
+                    className={`world-slide ${options[currentWorldIndex].worldImage ? "has-image" : ""}`}
+                    style={options[currentWorldIndex].worldImage ? {
+                      backgroundImage: `linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.65) 100%), url(${options[currentWorldIndex].worldImage})`,
+                      backgroundSize: "cover",
+                      backgroundPosition: "center"
+                    } : undefined}
+                  >
                     <h3 className="world-slide-title">{options[currentWorldIndex].world.name}</h3>
                     <p className="world-slide-text">{options[currentWorldIndex].world.description_short}</p>
+                    <div className="world-slide-meta">
+                      <div>
+                        <span className="world-slide-label">Герой:</span>{" "}
+                        <span>{options[currentWorldIndex].world.hero_description || "Ищем героя..."}</span>
+                      </div>
+                      <div>
+                        <span className="world-slide-label">Антигерой:</span>{" "}
+                        <span>{options[currentWorldIndex].world.conflict_description || "Ищем испытание..."}</span>
+                      </div>
+                    </div>
                   </div>
                 )}
                 {!options[currentWorldIndex] && (

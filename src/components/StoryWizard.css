@@ -26,6 +26,15 @@
   background-repeat: no-repeat;
 }
 
+.story-wizard.generating-mode {
+  background:
+    linear-gradient(180deg, rgba(6, 8, 18, 0.35) 0%, rgba(6, 8, 18, 0.6) 100%),
+    url("/backgrounds/magia.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .story-wizard.value-mode {
   background:
     linear-gradient(180deg, rgba(6, 8, 18, 0.35) 0%, rgba(6, 8, 18, 0.55) 100%),
@@ -102,10 +111,10 @@
   flex-direction: column;
   align-items: center;
   gap: 2rem;
-  background: white;
+  background: rgba(255, 255, 255, 0.92);
   padding: 3rem;
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
   max-width: 500px;
   text-align: center;
   transition: all 0.3s ease;
@@ -213,6 +222,11 @@
   animation: fadeSlide 0.6s ease;
 }
 
+.world-slide.has-image {
+  color: #f4f6ff;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.45);
+}
+
 .world-slide.placeholder {
   opacity: 0.8;
 }
@@ -229,6 +243,28 @@
   color: #444;
   line-height: 1.6;
   margin: 0;
+}
+
+.world-slide.has-image .world-slide-text,
+.world-slide.has-image .world-slide-title {
+  color: #f4f6ff;
+}
+
+.world-slide-meta {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.world-slide.has-image .world-slide-meta {
+  color: #f4f6ff;
+}
+
+.world-slide-label {
+  font-weight: 600;
 }
 
 @keyframes fadeSlide {
