@@ -167,7 +167,9 @@ function App() {
         newStory.worldDescription,
         newStory.heroDescription,
         newStory.antagonistDescription,
-        "История только начинается"
+        "История только начинается",
+        undefined,
+        newStory.ageLabel ?? "auto"
       );
 
       const world = GENRES[newStory.worldMode];

@@ -906,12 +906,12 @@ app.post("/api/ai/generate-chapter", async (req, res) => {
 Антагонист: ${cleanAntagBible}. 
 Текущее состояние: ${resolvedStateSummary}. 
 ${choiceText ? `Выбор читателя: ${choiceText}` : "Это первая глава."} 
-Длина: 3000-3500 символов. 
+Длина: 3000-5000 символов. 
 РОВНО 3 варианта выборов. 
 Верни JSON с полями:
 - chapter_id (строка)
 - title (строка)
-- narration_text (текст главы, 3000-3500 символов)
+- narration_text (текст главы, 3000-5000 символов)
 - scene_image_prompt (строка для генерации картинки)
 - choices (массив из 3 объектов, каждый с полями: id, text, intent_tag)
 - state_summary_end (строка)`;

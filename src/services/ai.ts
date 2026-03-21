@@ -135,37 +135,18 @@ export async function generateChapter(
   heroBible: string,
   antagonistBible: string,
   stateSummary: string,
-  choiceText?: string
+  choiceText?: string,
+  ageGroup: AgeGroup = "auto"
 ): Promise<ChapterResponse> {
   const world = resolveGenre(worldMode);
-  const systemPrompt = `Ты — автор детских историй в жанре "${world.name}".
-Конфликт главы: ${world.conflictType}.
-Сохраняй мягкий тон и ясность.
-Возвращай только валидный JSON по схеме. Никакого текста вне JSON.
-Используй русский язык.`;
-
-  const prompt = `Напиши следующую главу истории.
-Мир: ${worldBible}.
-Герой: ${heroBible}.
-Антагонист: ${antagonistBible}.
-Текущее состояние: ${stateSummary}.
-${choiceText ? `Выбор читателя: ${choiceText}` : "Это первая глава."}
-
-Длина текста: 800-1200 символов.
-Верни JSON строго по схеме:
-{
-  "title": "...",
-  "narration_text": "...",
-  "scene_image_prompt": "...",
-  "choices": [{"text": "..."}, {"text": "..."}, {"text": "..."}],
-  "state_summary_end": "..."
-}
-choices — ровно 3 объекта с полем text.`;
-
   const response = await callLocalApi<any>("/api/ai/generate-chapter", {
-    worldMode,
-    systemPrompt,
-    prompt,
+    genre: world.name,
+    ageGroup,
+    worldBible,
+    heroBible,
+    antagonistBible,
+    stateSummary,
+    choiceText,
     clientRequestId: createRequestId(),
   });
 

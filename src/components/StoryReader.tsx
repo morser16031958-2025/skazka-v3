@@ -33,6 +33,8 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
   const [loading, setLoading] = useState(false);
   const [selectedChoices, setSelectedChoices] = useState<Set<string>>(new Set());
   const [isFlipping, setIsFlipping] = useState(false);
+  const [showChapterGenModal, setShowChapterGenModal] = useState(false);
+  const [chapterGenBgIndex, setChapterGenBgIndex] = useState(0);
   const chapter = story.currentChapter;
   const world = resolveGenre(story.worldMode);
   const defaultBg = "#1a0f00";
@@ -55,6 +57,23 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
     return () => clearTimeout(timer);
   }, [chapter?.id]);
 
+  useEffect(() => {
+    if (!showChapterGenModal) return;
+    const interval = setInterval(() => {
+      setChapterGenBgIndex((prev) => {
+        const images = [
+          story.heroImage,
+          story.antagonistImage,
+          story.worldImage,
+          ...story.chapters.map((c) => c.scene_image_url).filter(Boolean),
+        ].filter(Boolean) as string[];
+        if (images.length === 0) return 0;
+        return (prev + 1) % images.length;
+      });
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [showChapterGenModal, story]);
+
   const handleChoiceSelect = async (choiceText: string) => {
     if (loading) return;
 
@@ -75,6 +94,7 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
     }
 
     setLoading(true);
+    setShowChapterGenModal(true);
     setSelectedChoices(prev => new Set([...prev, choiceText]));
     try {
       const stateSummary = chapter?.state_summary || "История только начинается";
@@ -85,7 +105,8 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
         story.heroDescription,
         story.antagonistDescription,
         stateSummary,
-        choiceText
+        choiceText,
+        story.ageLabel ?? "auto"
       );
 
       const newNodeId = uuidv4();
@@ -131,6 +152,7 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
       alert("Ошибка при генерировании следующей главы: " + (error instanceof Error ? error.message : ""));
     } finally {
       setLoading(false);
+      setShowChapterGenModal(false);
     }
   };
 
@@ -146,6 +168,7 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
   }
 
   return (
+    <>
     <div 
       className={`story-reader ${isFlipping ? "page-flip" : ""}`}
       style={backgroundImage ? {
@@ -210,8 +233,27 @@ export function StoryReader({ story, backgroundImage, onChapterUpdate, onBack }:
           </div>
         )}
 
-        {loading && <div className="loading-indicator">⏳ Создаём следующую главу...</div>}
       </div>
     </div>
+    {showChapterGenModal && (
+      <div className="chapter-gen-modal">
+        {(() => {
+          const images = [
+            story.heroImage,
+            story.antagonistImage,
+            story.worldImage,
+            ...story.chapters.map((c) => c.scene_image_url).filter(Boolean),
+          ].filter(Boolean) as string[];
+          const bgImage = images.length > 0 ? images[chapterGenBgIndex] : null;
+          return bgImage ? (
+            <div className="chapter-gen-modal-bg" style={{ backgroundImage: `url(${bgImage})` }} />
+          ) : null;
+        })()}
+        <div className="chapter-gen-modal-content">
+          <div className="blink-text">Создаю сказку...</div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
